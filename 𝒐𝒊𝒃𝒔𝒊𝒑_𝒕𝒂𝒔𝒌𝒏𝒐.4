@@ -1,0 +1,261 @@
+import java.util.Scanner;
+
+class User {
+    private String username;
+    private String password;
+    private String fullName;
+
+    public User(String username, String password, String fullName) {
+        this.username = username;
+        this.password = password;
+        this.fullName = fullName;
+    }
+
+    public boolean authenticate(String enteredPassword) {
+        return password.equals(enteredPassword);
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void updatePassword(String newPassword) {
+        password = newPassword;
+    }
+
+    public void updateFullName(String newFullName) {
+        fullName = newFullName;
+    }
+}
+
+class Quiz {
+    private String[] questions;
+    private String[][] options;
+    private int[] correctAnswers;
+
+    public Quiz(String[] questions, String[][] options, int[] correctAnswers) {
+        this.questions = questions;
+        this.options = options;
+        this.correctAnswers = correctAnswers;
+    }
+
+    public int getQuestionCount() {
+        return questions.length;
+    }
+
+    public String getQuestion(int questionNumber) {
+        return questions[questionNumber];
+    }
+
+    public String[] getOptions(int questionNumber) {
+        return options[questionNumber];
+    }
+
+    public int getCorrectAnswer(int questionNumber) {
+        return correctAnswers[questionNumber];
+    }
+}
+
+
+class QuizSession {
+    private User user;
+    private Quiz quiz;
+    private int[] selectedAnswers;
+    private int currentQuestion;
+    private int totalTimeInMinutes;
+    private long sessionStartTime;
+
+    public QuizSession(User user, Quiz quiz, int totalTimeInMinutes) {
+        this.user = user;
+        this.quiz = quiz;
+        this.totalTimeInMinutes = totalTimeInMinutes;
+        this.selectedAnswers = new int[quiz.getQuestionCount()];
+        this.currentQuestion = 0;
+        this.sessionStartTime = System.currentTimeMillis();
+    }
+
+    public boolean isSessionActive() {
+        long elapsedTime = (System.currentTimeMillis() - sessionStartTime) / 1000;
+        return elapsedTime < totalTimeInMinutes * 60;
+    }
+
+    public void submitAnswer(int selectedOption) {
+        if (currentQuestion < quiz.getQuestionCount()) {
+            selectedAnswers[currentQuestion] = selectedOption;
+            currentQuestion++;
+        }
+    }
+
+    public int getCurrentQuestionNumber() {
+        return currentQuestion + 1;
+    }
+
+    public String getCurrentQuestion() {
+        return quiz.getQuestion(currentQuestion);
+    }
+
+    public String[] getCurrentOptions() {
+        return quiz.getOptions(currentQuestion);
+    }
+
+    public int getTotalQuestions() {
+        return quiz.getQuestionCount();
+    }
+
+    public int getSelectedAnswer(int questionNumber) {
+        return selectedAnswers[questionNumber];
+    }
+
+    public int getCorrectAnswer(int questionNumber) {
+        return quiz.getCorrectAnswer(questionNumber);
+    }
+
+    public String getUserFullName() {
+        return user.getFullName();
+    }
+
+    public boolean isTimeUp() {
+        long elapsedTime = (System.currentTimeMillis() - sessionStartTime) / 1000;
+        return elapsedTime >= totalTimeInMinutes * 60;
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+
+        // Sample user and quiz data
+        User user = new User("user123", "password456", "John Doe");
+        String[] questions = {
+            "What is the capital of France?",
+            "Which planet is known as the 'Red Planet'?",
+            "Which famous scientist developed the theory of relativity?"
+        };
+        String[][] options = {
+            {"Paris", "London", "Berlin", "Madrid"},
+            {"Mars", "Jupiter", "Venus", "Saturn"},
+            {"Albert Einstein", "Isaac Newton", "Galileo Galilei", "Nikola Tesla"}
+        };
+        int[] correctAnswers = {0, 0, 0};
+        Quiz quiz = new Quiz(questions, options, correctAnswers);
+        int totalTimeInMinutes = 1; // Change the time for testing
+
+       System.out.println("Welcome to the Online Quiz System!");
+        boolean isLoggedIn = authenticateUser(user, scanner);
+        if (isLoggedIn) {
+            System.out.println("Authentication successful! Welcome, " + user.getFullName() + ".");
+            QuizSession session = new QuizSession(user, quiz, totalTimeInMinutes);
+            updateProfile(user, scanner);
+            startQuizSession(session, scanner);
+            closeSessionAndLogout(session);
+        } else {
+            System.out.println("Authentication failed. Exiting.");
+        }
+
+        scanner.close();
+    }
+
+    public static boolean authenticateUser(User user, Scanner scanner) {
+        System.out.print("Username: ");
+        String username = scanner.nextLine();
+        System.out.print("Password: ");
+        String enteredPassword = scanner.nextLine();
+        return user.authenticate(enteredPassword);
+    }
+
+    public static void updateProfile(User user, Scanner scanner) {
+        System.out.println("\nUpdate Profile and Password");
+        System.out.println("1. Update Full Name");
+        System.out.println("2. Update Password");
+        System.out.println("3. Skip (Keep existing details)");
+        System.out.print("Enter your choice: ");
+        int choice = scanner.nextInt();
+        scanner.nextLine(); // Consume the newline
+
+        switch (choice) {
+            case 1:
+                System.out.print("Enter new full name: ");
+                String newFullName = scanner.nextLine();
+                user.updateFullName(newFullName);
+                System.out.println("Full name updated.");
+                break;
+            case 2:
+                System.out.print("Enter new password: ");
+                String newPassword = scanner.nextLine();
+                user.updatePassword(newPassword);
+                System.out.println("Password updated.");
+                break;
+            case 3:
+                System.out.println("Keeping existing details.");
+                break;    
+            default:
+                System.out.println("Invalid choice.");
+        }
+    }
+
+    public static void startQuizSession(QuizSession session, Scanner scanner) {
+        System.out.println("\nQuiz Session: " + session.getUserFullName());
+        long sessionStartTime = System.currentTimeMillis();
+
+        Thread timerThread = new Thread(() -> {
+            while (session.isSessionActive() && !session.isTimeUp()) {
+                try {
+                    Thread.sleep(1000); // Sleep for 1 second
+                } catch (InterruptedException e) {
+                    return; // Exit the thread gracefully
+                }
+            }
+            if (!session.isTimeUp()) {
+                System.out.println("\nTime is up! Auto-submitting answers...");
+                submitAnswersAndShowResults(session);
+            }
+        });
+
+        timerThread.start();
+
+        while (session.isSessionActive() && session.getCurrentQuestionNumber() <= session.getTotalQuestions()) {
+            System.out.println("\nQuestion " + session.getCurrentQuestionNumber() + " of " + session.getTotalQuestions() + ":");
+            System.out.println(session.getCurrentQuestion());
+
+            String[] options = session.getCurrentOptions();
+            for (int i = 0; i < options.length; i++) {
+                System.out.println((i + 1) + ". " + options[i]);
+            }
+
+            System.out.print("Enter your answer (1-" + options.length + "): ");
+            int selectedOption = scanner.nextInt();
+            session.submitAnswer(selectedOption - 1);
+            System.out.println("Answer submitted.");
+        }
+
+        timerThread.interrupt(); // Stop the timer thread
+        submitAnswersAndShowResults(session);
+        
+        long elapsedTimeMillis = System.currentTimeMillis() - sessionStartTime;
+        printElapsedTime(elapsedTimeMillis);
+    }
+    
+    public static void printElapsedTime(long elapsedTimeMillis) {
+        long seconds = elapsedTimeMillis / 1000;
+        long minutes = seconds / 60;
+        seconds %= 60;
+
+        System.out.println("\nTime taken: " + minutes + " minutes " + seconds + " seconds");
+    }
+
+    public static void closeSessionAndLogout(QuizSession session) {
+        System.out.println("\nClosing session and logging out...");
+        System.out.println("Goodbye, " + session.getUserFullName() + "!");
+    }
+
+    public static void submitAnswersAndShowResults(QuizSession session) {
+        System.out.println("\nQuiz Results:");
+        for (int i = 0; i < session.getTotalQuestions(); i++) {
+            int questionNumber = i + 1;
+            int selectedAnswer = session.getSelectedAnswer(i) + 1;
+            int correctAnswer = session.getCorrectAnswer(i) + 1;
+            System.out.println("Question " + questionNumber + ": Your answer: " + selectedAnswer +
+                    " | Correct answer: " + correctAnswer);
+        }
+    }
+}
